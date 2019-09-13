@@ -1,6 +1,6 @@
 
 # Image URL to use all building/pushing image targets
-IMG ?= controller:latest
+IMG ?= selinux-policy-helper-operator:latest
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true"
 
@@ -51,12 +51,12 @@ generate: controller-gen
 	$(CONTROLLER_GEN) object:headerFile=./hack/boilerplate.go.txt paths="./..."
 
 # Build the docker image
-docker-build: test
-	docker build . -t ${IMG}
+image-build: test
+	podman build . -t ${IMG}
 
 # Push the docker image
-docker-push:
-	docker push ${IMG}
+image-push:
+	podman push ${IMG} quay.io/jaosorior/selinux-policy-helper-operator
 
 # find or download controller-gen
 # download controller-gen if necessary
