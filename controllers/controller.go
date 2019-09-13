@@ -62,7 +62,7 @@ func (r *ReconcilePods) Reconcile(request reconcile.Request) (reconcile.Result, 
 	}
 
 	if isPolicyHelperPod(pod) {
-		return r.handlePolicyHelperPod(request, pod, log)
+		return r.handlePolicyHelperPod(pod, log)
 	}
 
 	if skip, message := shouldPodBeSkipped(pod); skip {
@@ -70,10 +70,10 @@ func (r *ReconcilePods) Reconcile(request reconcile.Request) (reconcile.Result, 
 		return reconcile.Result{}, nil
 	}
 
-	return r.handlePodThatNeedsPolicy(request, pod, log)
+	return r.handlePodThatNeedsPolicy(pod, log)
 }
 
-func (r *ReconcilePods) handlePolicyHelperPod(request reconcile.Request, pod *corev1.Pod, log logr.Logger) (reconcile.Result, error) {
+func (r *ReconcilePods) handlePolicyHelperPod(pod *corev1.Pod, log logr.Logger) (reconcile.Result, error) {
 	switch pod.Status.Phase {
 	case corev1.PodSucceeded:
 		if err := r.Client.Delete(context.TODO(), pod); err != nil {
@@ -88,13 +88,13 @@ func (r *ReconcilePods) handlePolicyHelperPod(request reconcile.Request, pod *co
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcilePods) handlePodThatNeedsPolicy(request reconcile.Request, pod *corev1.Pod, log logr.Logger) (reconcile.Result, error) {
+func (r *ReconcilePods) handlePodThatNeedsPolicy(pod *corev1.Pod, log logr.Logger) (reconcile.Result, error) {
 	// Print the pod
 	log.Info("Running policy helper for pod", "pod name", pod.Name)
 
 	// Run policy helper
-	selinuxPodNSName := types.NamespacedName{Name: getSelinuxPodName(request.Name), Namespace: operatorNamespace}
-	selinuxPod := newSelinuxPolicyMakerPod(request.Name, pod.Spec.NodeName)
+	selinuxPodNSName := types.NamespacedName{Name: getSelinuxPodName(pod.Name), Namespace: operatorNamespace}
+	selinuxPod := newSelinuxPolicyMakerPod(pod.Name, pod.Namespace, pod.Spec.NodeName)
 	err := r.Client.Create(context.TODO(), selinuxPod)
 	if err != nil {
 		log.Error(err, "Could not write selinux Pod")
@@ -149,7 +149,7 @@ func getSelinuxPodName(targetPodName string) string {
 	return "selinux-k8s-for-" + targetPodName
 }
 
-func newSelinuxPolicyMakerPod(targetPodName, targetNodeName string) *corev1.Pod {
+func newSelinuxPolicyMakerPod(targetPodName, targetPodNamespace, targetNodeName string) *corev1.Pod {
 	return &corev1.Pod{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Pod",
@@ -168,7 +168,7 @@ func newSelinuxPolicyMakerPod(targetPodName, targetNodeName string) *corev1.Pod 
 					Name:    "selinux-k8s",
 					Image:   "quay.io/jaosorior/selinux-k8s:latest",
 					Command: []string{"selinuxk8s"},
-					Args:    []string{"--name", targetPodName},
+					Args:    []string{"--name", targetPodName, "--namespace", targetPodNamespace},
 					SecurityContext: &corev1.SecurityContext{
 						Privileged: &trueVal,
 					},
