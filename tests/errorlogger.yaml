@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: errorlogger
+  namespace: default
+  annotations:
+    generate-selinux-policy: ""
+spec:
+  containers:
+  - name: errorlogger
+    image: registry.access.redhat.com/ubi8/ubi:latest
+    command: ["/bin/bash"]
+    args: ["-c", "while true; do echo \"Time: $(date). Some error info.\" >> /var/log/test.log; sleep 2; done"]
+    securityContext:
+      privileged: true
+    volumeMounts:
+    - name: varlog
+      mountPath: /var/log
+  restartPolicy: Never
+  volumes:
+  - name: varlog
+    hostPath:
+      path: /var/log
+      type: Directory
