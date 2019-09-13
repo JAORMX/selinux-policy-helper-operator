@@ -11,6 +11,9 @@ In order to generate the policy, it spawns a pod with the selinux-k8s
 tool which uses udica to generate the policy. It will spit out a
 configmap with the appropriate policy.
 
+Note that the configmaps genereated are created in the
+"selinux-policy-helper-operator" namespace.
+
 Instructions
 ------------
 Build:
