@@ -1,0 +1,3 @@
+version: "2"
+domain: selinux.openshift.io
+repo: github.com/JAORMX/selinux-policy-helper-operator
