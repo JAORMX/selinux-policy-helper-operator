@@ -25,11 +25,8 @@ make
 Create assets in cluster:
 
 ```
-oc create -f ns.yaml
+oc create -f manifests/all.yaml
 oc project selinux-policy-helper-operator
-oc create -f sa.yaml
-oc create -f role.yaml
-oc create -f rb.yaml
 ```
 
 Run locally:
