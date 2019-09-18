@@ -13,7 +13,7 @@ configmap with the appropriate policy.
 
 The link to the tool is the following:
 
-    https://github.com/JAORMX/selinux-k8s
+https://github.com/JAORMX/selinux-k8s
 
 Note that the configmaps genereated are created in the
 "selinux-policy-helper-operator" namespace.
