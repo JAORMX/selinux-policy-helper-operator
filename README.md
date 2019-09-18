@@ -42,3 +42,11 @@ Demo
 ----
 
 [![asciicast](https://asciinema.org/a/RnjsiiQYRDiLcB8hbhKiIJF5B.svg)](https://asciinema.org/a/RnjsiiQYRDiLcB8hbhKiIJF5B)
+
+TODO
+----
+
+- [ ] Allow passing extra capabilities as annotations.
+
+- [ ] Allow monitoring only certain namespaces. This would enable the use-case
+  of developer-only namespaces.
