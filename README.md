@@ -33,3 +33,8 @@ Run locally:
 ```
 bin/manager -kubeconfig ~/path/to/kubeconfig
 ```
+
+Demo
+----
+
+[![asciicast](https://asciinema.org/a/RnjsiiQYRDiLcB8hbhKiIJF5B.svg)](https://asciinema.org/a/RnjsiiQYRDiLcB8hbhKiIJF5B)
