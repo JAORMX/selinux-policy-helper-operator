@@ -20,22 +20,11 @@ Note that the configmaps genereated are created in the
 
 Instructions
 ------------
-Build:
-
-```
-make
-```
 
 Create assets in cluster:
 
 ```
-oc create -f manifests/all.yaml
-oc project selinux-policy-helper-operator
-```
-
-Run locally:
-```
-bin/manager -kubeconfig ~/path/to/kubeconfig
+oc create -f deploy/
 ```
 
 Demo
