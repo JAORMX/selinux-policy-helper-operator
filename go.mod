@@ -3,7 +3,6 @@ module github.com/JAORMX/selinux-policy-helper-operator
 go 1.13
 
 require (
-	github.com/JAORMX/selinux-operator v0.1.0
 	github.com/go-logr/logr v0.1.0
 	github.com/operator-framework/operator-sdk v0.13.1-0.20191219195019-721a85048373
 	github.com/spf13/pflag v1.0.5
