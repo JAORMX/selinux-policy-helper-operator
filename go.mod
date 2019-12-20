@@ -3,8 +3,12 @@ module github.com/JAORMX/selinux-policy-helper-operator
 go 1.13
 
 require (
+	github.com/JAORMX/selinux-operator v0.1.1
+	github.com/cenkalti/backoff/v3 v3.1.1
 	github.com/go-logr/logr v0.1.0
 	github.com/operator-framework/operator-sdk v0.13.1-0.20191219195019-721a85048373
+	github.com/prometheus/common v0.7.0
+	github.com/spf13/cobra v0.0.5
 	github.com/spf13/pflag v1.0.5
 	k8s.io/api v0.0.0
 	k8s.io/apimachinery v0.0.0

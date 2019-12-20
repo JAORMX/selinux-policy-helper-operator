@@ -101,8 +101,7 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 		return r.handlePolicyHelperPod(pod, reqLogger)
 	}
 
-	if skip, message := shouldPodBeSkipped(pod); skip {
-		reqLogger.Info(message, "pod name", pod.Name)
+	if shouldPodBeSkipped(pod) {
 		return reconcile.Result{}, nil
 	}
 
@@ -117,7 +116,7 @@ func (r *ReconcilePod) handlePolicyHelperPod(pod *corev1.Pod, log logr.Logger) (
 			return reconcile.Result{}, ignoreNotFound(err)
 		}
 	case corev1.PodFailed:
-		log.Error(nil, "Policy helper pod failed. Please check the logs to see why", "pod name", pod.Name)
+		log.Info("Policy helper pod failed. Please check the logs to see why", "pod name", pod.Name)
 	default:
 		log.Info("Skipping policy helper pod since it's not done", "pod name", pod.Name)
 	}
@@ -153,27 +152,27 @@ func (r *ReconcilePod) handlePodThatNeedsPolicy(pod *corev1.Pod, log logr.Logger
 	return reconcile.Result{}, nil
 }
 
-func shouldPodBeSkipped(pod *corev1.Pod) (bool, string) {
+func shouldPodBeSkipped(pod *corev1.Pod) bool {
 	if pod.Annotations == nil {
-		return true, "Skipping pod without annotations"
+		return true
 	}
 
 	// If the pod doesn't have the relevant annotation, we can skip it
 	if _, hasAnnotation := pod.Annotations["generate-selinux-policy"]; !hasAnnotation {
-		return true, "Skipping pod without selinux annotations"
+		return true
 	}
 
 	// We only care for pods that are running
 	if pod.Status.Phase != corev1.PodRunning {
-		return true, "Skipping pod that's not running"
+		return true
 	}
 
 	// Have we processed this pod before?
 	if _, hasAnnotation := pod.Annotations["selinux-policy"]; hasAnnotation {
-		return true, "Skipping pod that has already been processed"
+		return true
 	}
 
-	return false, ""
+	return false
 }
 
 func isPolicyHelperPod(pod *corev1.Pod) bool {

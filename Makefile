@@ -62,16 +62,9 @@ help: ## Show this help screen
 	@echo ''
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z0-9_-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
-.PHONY: images
-images: operator-image udica-image ## Build the container images
-
-.PHONY: operatorimage
-operator-image: operator-sdk
+.PHONY: image
+image:  ## Build the container image
 	$(GOPATH)/bin/operator-sdk build $(IMAGE_PATH) --image-builder $(RUNTIME)
-
-.PHONY: udica-image 
-udica-image:
-	$(RUNTIME) build -t udica:$(TAG) -f ./images/udica/Dockerfile .
 
 .PHONY: build
 build: ## Build the selinux-policy-helper-operator binary
@@ -144,7 +137,7 @@ test-unit: fmt ## Run the unit tests
 # avoided with the E2E_SKIP_CONTAINER_PUSH environment variable.
 .PHONY: e2e
 ifeq ($(E2E_SKIP_CONTAINER_PUSH), false)
-e2e: namespace operator-sdk check-if-ci images-to-cluster ## Run the end-to-end tests
+e2e: namespace operator-sdk check-if-ci image-to-cluster ## Run the end-to-end tests
 else
 e2e: namespace operator-sdk check-if-ci
 endif
@@ -173,19 +166,18 @@ endif
 # probably want to push the selinux-policy-helper-operator image to the cluster we're
 # developing on. This target exposes temporarily the image registry, pushes the
 # image, and remove the route in the end.
-.PHONY: images-to-cluster
+.PHONY: image-to-cluster
 ifdef IMAGE_FORMAT
-images-to-cluster:
-	@echo "We're in a CI environment, skipping images-to-cluster target."
+image-to-cluster:
+	@echo "We're in a CI environment, skipping image-to-cluster target."
 else
-images-to-cluster: namespace openshift-user images
+image-to-cluster: namespace openshift-user image
 	@echo "Temporarily exposing the default route to the image registry"
 	@oc patch configs.imageregistry.operator.openshift.io/cluster --patch '{"spec":{"defaultRoute":true}}' --type=merge
 	@echo "Pushing image $(IMAGE_PATH):$(TAG) to the image registry"
 	IMAGE_REGISTRY_HOST=$$(oc get route default-route -n openshift-image-registry --template='{{ .spec.host }}'); \
 		$(RUNTIME) login --tls-verify=false -u $(OPENSHIFT_USER) -p $(shell oc whoami -t) $${IMAGE_REGISTRY_HOST}; \
-		$(RUNTIME) push --tls-verify=false $(IMAGE_PATH):$(TAG) $${IMAGE_REGISTRY_HOST}/$(NAMESPACE)/$(APP_NAME):$(TAG); \
-		$(RUNTIME) push --tls-verify=false udica:$(TAG) $${IMAGE_REGISTRY_HOST}/$(NAMESPACE)/udica:$(TAG)
+		$(RUNTIME) push --tls-verify=false $(IMAGE_PATH):$(TAG) $${IMAGE_REGISTRY_HOST}/$(NAMESPACE)/$(APP_NAME):$(TAG)
 	@echo "Removing the route from the image registry"
 	@oc patch configs.imageregistry.operator.openshift.io/cluster --patch '{"spec":{"defaultRoute":false}}' --type=merge
 	$(eval IMAGE_PATH = image-registry.openshift-image-registry.svc:5000/$(NAMESPACE)/$(APP_NAME):$(TAG))

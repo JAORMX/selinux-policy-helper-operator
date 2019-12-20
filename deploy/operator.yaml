@@ -15,8 +15,7 @@ spec:
       serviceAccountName: selinux-policy-helper-operator
       containers:
         - name: selinux-policy-helper-operator
-          # Replace this with the built image name
-          image: REPLACE_IMAGE
+          image: "image-registry.openshift-image-registry.svc:5000/openshift-selinux-policy-helper-operator/selinux-policy-helper-operator:latest"
           command:
           - selinux-policy-helper-operator
           imagePullPolicy: Always

@@ -11,13 +11,10 @@ spec:
     args: ["-c", "while true; do echo \"Time: $(date). Some error info.\" >> /var/log/test.log; sleep 2; done"]
     securityContext:
       seLinuxOptions:
-        #user: system_u
-        #role: system_r
-        type: errorlogger_errorlogger.process
+        type: errorlogger-errorlogger_default.process
     volumeMounts:
     - name: varlog
       mountPath: /var/log
-  nodeName: NODE_NAME
   restartPolicy: Never
   volumes:
   - name: varlog
