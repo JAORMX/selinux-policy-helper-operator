@@ -1,20 +1,4 @@
-/*
-Copyright 2019 Red Hat Inc..
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
-package controllers
+package pod
 
 import (
 	"context"
@@ -23,62 +7,114 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 var (
 	trueVal           = true
 	hostPathDir       = corev1.HostPathDirectory
 	hostPathFile      = corev1.HostPathFile
-	operatorNamespace = "selinux-policy-helper-operator"
+	operatorNamespace = "openshift-selinux-policy-helper-operator"
 )
 
-// ReconcilePods reconciles Pods
-type ReconcilePods struct {
-	// client can be used to retrieve objects from the APIServer.
-	Client client.Client
-	Log    logr.Logger
+type updatePredicate struct {
+	predicate.Funcs
 }
 
-// Implement reconcile.Reconciler so the controller can reconcile objects
-var _ reconcile.Reconciler = &ReconcilePods{}
+func (updatePredicate) Create(e event.CreateEvent) bool {
+	return false
+}
 
-func (r *ReconcilePods) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	// set up a convenient log object so we don't have to Type request over and over again
-	log := r.Log.WithValues("request", request)
+func (updatePredicate) Delete(e event.DeleteEvent) bool {
+	return false
+}
+func (updatePredicate) Generic(e event.GenericEvent) bool {
+	return false
+}
 
-	// Fetch the Pod from the cache
-	pod := &corev1.Pod{}
-	err := r.Client.Get(context.TODO(), request.NamespacedName, pod)
-	if errors.IsNotFound(err) {
-		log.Info("Could not find Pod. But it's ok.")
-		return reconcile.Result{}, nil
-	}
+var log = logf.Log.WithName("controller_pod")
+
+// Add creates a new Pod Controller and adds it to the Manager. The Manager will set fields on the Controller
+// and Start it when the Manager is Started.
+func Add(mgr manager.Manager) error {
+	return add(mgr, newReconciler(mgr))
+}
+
+// newReconciler returns a new reconcile.Reconciler
+func newReconciler(mgr manager.Manager) reconcile.Reconciler {
+	return &ReconcilePod{client: mgr.GetClient(), scheme: mgr.GetScheme()}
+}
+
+// add adds a new Controller to mgr with r as the reconcile.Reconciler
+func add(mgr manager.Manager, r reconcile.Reconciler) error {
+	// Create a new controller
+	c, err := controller.New("pod-controller", mgr, controller.Options{Reconciler: r})
 	if err != nil {
-		log.Error(err, "Could not fetch Pod")
-		return reconcile.Result{}, err
+		return err
+	}
+
+	// Watch for updates to Pod resource
+	err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForObject{}, &updatePredicate{})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// blank assignment to verify that ReconcilePod implements reconcile.Reconciler
+var _ reconcile.Reconciler = &ReconcilePod{}
+
+// ReconcilePod reconciles a Pod object
+type ReconcilePod struct {
+	// This client, initialized using mgr.Client() above, is a split client
+	// that reads objects from the cache and writes to the apiserver
+	client client.Client
+	scheme *runtime.Scheme
+}
+
+// Reconcile reads that state of the cluster for a Pod object and makes changes based on the state read
+// and what is in the Pod.Spec
+// Note:
+// The Controller will requeue the Request to be processed again if the returned error is non-nil or
+// Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
+func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
+
+	pod := &corev1.Pod{}
+	if err := r.client.Get(context.TODO(), request.NamespacedName, pod); err != nil {
+		return reconcile.Result{}, ignoreNotFound(err)
 	}
 
 	if isPolicyHelperPod(pod) {
-		return r.handlePolicyHelperPod(pod, log)
+		reqLogger.Info("Reconciling Pod")
+		return r.handlePolicyHelperPod(pod, reqLogger)
 	}
 
 	if skip, message := shouldPodBeSkipped(pod); skip {
-		log.Info(message, "pod name", pod.Name)
+		reqLogger.Info(message, "pod name", pod.Name)
 		return reconcile.Result{}, nil
 	}
 
-	return r.handlePodThatNeedsPolicy(pod, log)
+	return r.handlePodThatNeedsPolicy(pod, reqLogger)
 }
 
-func (r *ReconcilePods) handlePolicyHelperPod(pod *corev1.Pod, log logr.Logger) (reconcile.Result, error) {
+func (r *ReconcilePod) handlePolicyHelperPod(pod *corev1.Pod, log logr.Logger) (reconcile.Result, error) {
 	switch pod.Status.Phase {
 	case corev1.PodSucceeded:
-		if err := r.Client.Delete(context.TODO(), pod); err != nil {
+		if err := r.client.Delete(context.TODO(), pod); err != nil {
 			log.Error(err, "Could not delete policy helper pod", "pod name", pod.Name)
-			return reconcile.Result{}, err
+			return reconcile.Result{}, ignoreNotFound(err)
 		}
 	case corev1.PodFailed:
 		log.Error(nil, "Policy helper pod failed. Please check the logs to see why", "pod name", pod.Name)
@@ -88,24 +124,30 @@ func (r *ReconcilePods) handlePolicyHelperPod(pod *corev1.Pod, log logr.Logger) 
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcilePods) handlePodThatNeedsPolicy(pod *corev1.Pod, log logr.Logger) (reconcile.Result, error) {
+func (r *ReconcilePod) handlePodThatNeedsPolicy(pod *corev1.Pod, log logr.Logger) (reconcile.Result, error) {
 	// Print the pod
 	log.Info("Running policy helper for pod", "pod name", pod.Name)
 
 	// Run policy helper
 	selinuxPodNSName := types.NamespacedName{Name: getSelinuxPodName(pod.Name), Namespace: operatorNamespace}
-	selinuxPod := newSelinuxPolicyMakerPod(pod.Name, pod.Namespace, pod.Spec.NodeName)
-	err := r.Client.Create(context.TODO(), selinuxPod)
-	if err != nil {
-		log.Error(err, "Could not write selinux Pod")
+	selinuxPod := &corev1.Pod{}
+	if err := r.client.Get(context.TODO(), selinuxPodNSName, selinuxPod); err != nil {
+		if errors.IsNotFound(err) {
+			selinuxPod = newSelinuxPolicyMakerPod(pod.Name, pod.Namespace, pod.Spec.NodeName)
+			if err := r.client.Create(context.TODO(), selinuxPod); err != nil {
+				log.Error(err, "Could not write selinux Pod")
+				return reconcile.Result{}, err
+			}
+			return reconcile.Result{}, nil
+		}
 		return reconcile.Result{}, err
 	}
 
+	podCopy := pod.DeepCopy()
 	// update pod annotation
-	pod.Annotations["selinux-policy"] = selinuxPodNSName.String()
-	err = r.Client.Update(context.TODO(), pod)
-	if err != nil {
-		log.Error(err, "Could not update target pod", "pod name", pod.Name)
+	podCopy.Annotations["selinux-policy"] = selinuxPodNSName.String()
+	if err := r.client.Update(context.TODO(), podCopy); err != nil {
+		log.Error(err, "Could not update target pod", "pod name", podCopy.Name)
 		return reconcile.Result{}, err
 	}
 	return reconcile.Result{}, nil
@@ -248,4 +290,12 @@ func newSelinuxPolicyMakerPod(targetPodName, targetPodNamespace, targetNodeName 
 			},
 		},
 	}
+}
+
+func ignoreNotFound(err error) error {
+	if errors.IsNotFound(err) {
+		return nil
+	}
+	// Error reading the object - requeue the request.
+	return err
 }

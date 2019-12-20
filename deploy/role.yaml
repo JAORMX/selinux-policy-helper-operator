@@ -1,0 +1,75 @@
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: selinux-policy-helper-operator
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  - services
+  - services/finalizers
+  - endpoints
+  - persistentvolumeclaims
+  - events
+  - configmaps
+  - secrets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  - daemonsets
+  - replicasets
+  - statefulsets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - monitoring.coreos.com
+  resources:
+  - servicemonitors
+  verbs:
+  - "get"
+  - "create"
+- apiGroups:
+  - apps
+  resources:
+  - deployments/finalizers
+  resourceNames:
+  - selinux-policy-helper-operator
+  verbs:
+  - "update"
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - get
+- apiGroups:
+  - apps
+  resources:
+  - replicasets
+  - deployments
+  verbs:
+  - get
+- apiGroups:                  # Needed for using privileged containers
+  - security.openshift.io
+  resources:
+  - securitycontextconstraints
+  resourceNames:
+  - privileged
+  verbs:
+  - use
