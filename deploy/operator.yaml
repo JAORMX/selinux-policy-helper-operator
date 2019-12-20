@@ -15,7 +15,7 @@ spec:
       serviceAccountName: selinux-policy-helper-operator
       containers:
         - name: selinux-policy-helper-operator
-          image: "image-registry.openshift-image-registry.svc:5000/openshift-selinux-policy-helper-operator/selinux-policy-helper-operator:latest"
+          image: "quay.io/jaosorior/selinux-policy-helper-operator"
           command:
           - selinux-policy-helper-operator
           imagePullPolicy: Always
