@@ -140,7 +140,6 @@ func (r *ReconcilePod) handlePodThatNeedsPolicy(pod *corev1.Pod, log logr.Logger
 				log.Error(err, "Could not write selinux Pod")
 				return reconcile.Result{}, err
 			}
-			return reconcile.Result{}, nil
 		}
 		return reconcile.Result{}, err
 	}
