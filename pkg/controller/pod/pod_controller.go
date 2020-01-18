@@ -2,6 +2,9 @@ package pod
 
 import (
 	"context"
+	hash "crypto/sha1"
+	"fmt"
+	"io"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -128,7 +131,7 @@ func (r *ReconcilePod) handlePodThatNeedsPolicy(pod *corev1.Pod, log logr.Logger
 	log.Info("Running policy helper for pod", "pod name", pod.Name)
 
 	// Run policy helper
-	selinuxPodNSName := types.NamespacedName{Name: getSelinuxPodName(pod.Name), Namespace: operatorNamespace}
+	selinuxPodNSName := types.NamespacedName{Name: getSelinuxPodName(pod.Name, pod.Namespace), Namespace: operatorNamespace}
 	selinuxPod := &corev1.Pod{}
 	if err := r.client.Get(context.TODO(), selinuxPodNSName, selinuxPod); err != nil {
 		if errors.IsNotFound(err) {
@@ -186,8 +189,10 @@ func isPolicyHelperPod(pod *corev1.Pod) bool {
 	return false
 }
 
-func getSelinuxPodName(targetPodName string) string {
-	return "selinux-k8s-for-" + targetPodName
+func getSelinuxPodName(targetPodName, targetPodNamespace string) string {
+	hasher := hash.New()
+	io.WriteString(hasher, targetPodName+"-"+targetPodNamespace)
+	return "selinux-k8s-" + fmt.Sprintf("%x", hasher.Sum(nil))
 }
 
 func newSelinuxPolicyMakerPod(targetPodName, targetPodNamespace, targetNodeName string) *corev1.Pod {
@@ -197,7 +202,7 @@ func newSelinuxPolicyMakerPod(targetPodName, targetPodNamespace, targetNodeName 
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      getSelinuxPodName(targetPodName),
+			Name:      getSelinuxPodName(targetPodName, targetPodNamespace),
 			Namespace: operatorNamespace,
 			Annotations: map[string]string{
 				"owned-by-selinux-policy-helper": "",
