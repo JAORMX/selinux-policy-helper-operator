@@ -15,11 +15,14 @@ The link to the tool is the following:
 
 https://github.com/JAORMX/selinux-k8s
 
-Note that the configmaps genereated are created in the
-"selinux-policy-helper-operator" namespace.
+Note that this now requires the selinux-operator to be installed:
+
+https://github.com/JAORMX/selinux-operator
 
 Instructions
 ------------
+
+Install the selinux-operator with the instructions from that repository.
 
 Create assets in cluster:
 
@@ -39,3 +42,6 @@ TODO
 
 - [ ] Allow monitoring only certain namespaces. This would enable the use-case
   of developer-only namespaces.
+
+- [ ] Allow annotating full namespaces. This would enable folks to annotate the
+  namespaces and get policies for all the pods running in them.
