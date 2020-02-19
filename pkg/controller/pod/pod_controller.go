@@ -104,7 +104,15 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 		return r.handlePolicyHelperPod(pod, reqLogger)
 	}
 
-	if shouldPodBeSkipped(pod) {
+	ns := &corev1.Namespace{}
+	podNS := types.NamespacedName{Name: pod.Namespace}
+	if err := r.client.Get(context.TODO(), podNS, ns); err != nil {
+		// If there's no Namespace existing in the cluster... we don't bother trying
+		//with this pod. It'll be deleted anyway.
+		return reconcile.Result{}, ignoreNotFound(err)
+	}
+
+	if r.shouldPodBeSkipped(pod, ns) {
 		return reconcile.Result{}, nil
 	}
 
@@ -154,13 +162,11 @@ func (r *ReconcilePod) handlePodThatNeedsPolicy(pod *corev1.Pod, log logr.Logger
 	return reconcile.Result{}, nil
 }
 
-func shouldPodBeSkipped(pod *corev1.Pod) bool {
-	if pod.Annotations == nil {
-		return true
-	}
-
-	// If the pod doesn't have the relevant annotation, we can skip it
-	if _, hasAnnotation := pod.Annotations["generate-selinux-policy"]; !hasAnnotation {
+func (r *ReconcilePod) shouldPodBeSkipped(pod *corev1.Pod, ns *corev1.Namespace) bool {
+	// If the namespace or pod doesn't have the relevant annotation, we can skip it
+	_, nsHasAnnotation := ns.Annotations["generate-selinux-policy"]
+	_, podHasAnnotation := pod.Annotations["generate-selinux-policy"]
+	if !nsHasAnnotation && !podHasAnnotation {
 		return true
 	}
 
